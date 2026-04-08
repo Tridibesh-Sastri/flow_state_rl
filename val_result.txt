@@ -1,0 +1,7 @@
+[FAIL] flow_state_rl: Not ready for multi-mode deployment
+
+Issues found:
+  - server/app.py missing main() function
+  - server/app.py main() function not callable (missing if __name__ == '__main__')
+
+---STDERR---
