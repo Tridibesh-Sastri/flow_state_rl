@@ -38,10 +38,10 @@ async def main():
     # Ingest environment variables
     api_base = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
     model_name = os.environ.get("MODEL_NAME", "baseline-model")
-    hf_token = os.environ.get("HF_TOKEN", "dummy-token")
+    hf_token = os.getenv("HF_TOKEN")
     
-    # Instantiate OpenAI client
-    client = OpenAI(base_url=api_base, api_key=hf_token)
+    # Instantiate OpenAI client (use empty string if token is missing to prevent crash)
+    client = OpenAI(base_url=api_base, api_key=hf_token or "not-set")
     
     # Log start
     log_start("FlowState Baseline Verification", "flow_state_rl", model_name)
