@@ -39,12 +39,12 @@ async def main():
     api_base = os.environ.get("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
     model_name = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
     
-    # Ensure no default string is set for HF_TOKEN
-    hf_token = os.getenv("HF_TOKEN")
-    api_key = os.getenv("API_KEY") or hf_token
-    
-    # Instantiate OpenAI client
-    client = OpenAI(base_url=api_base, api_key=api_key or "not-set")
+    # Strictly follow the validator's explicit instructions
+    api_key = os.environ.get("API_KEY")
+    if not api_key:
+        api_key = os.environ.get("HF_TOKEN")
+        
+    client = OpenAI(base_url=api_base, api_key=api_key)
     
     # Log start
     log_start("FlowState Baseline Verification", "flow_state_rl", model_name)
@@ -62,35 +62,36 @@ async def main():
         step_count = i
         
         # REAL LLM CALL (Phase 2 Requirement)
-        # We pass the current environment observation to the model and ask for a JSON action.
         try:
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {
                         "role": "system", 
-                        "content": "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema."
+                        "content": "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema. Do not include markdown formatting."
                     },
                     {
                         "role": "user", 
-                        "content": f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action to maximize productivity while managing fatigue."
+                        "content": f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
                     }
-                ],
-                response_format={"type": "json_object"}
+                ]
             )
             
-            action_str = response.choices[0].message.content
-            action_dict = json.loads(action_str)
+            action_str = response.choices[0].message.content.strip()
             
-            # Map the JSON response to our Pydantic model
+            # Clean markdown if the model includes it
+            if action_str.startswith("```json"):
+                action_str = action_str.replace("```json", "").replace("```", "").strip()
+            elif action_str.startswith("```"):
+                action_str = action_str.replace("```", "").strip()
+                
+            action_dict = json.loads(action_str)
             action = BlockAction(**action_dict)
+            
         except Exception as e:
-            # Fallback for safety to ensure the script doesn't crash
-            action_dict = {
-                "adjust_goal": {},
-                "adjust_blocks": {"break_block": 0.5},
-                "energy_shift": {}
-            }
+            # Print the error so it shows up in the platform's internal logs!
+            print(f"LLM Call Error at step {step_count}: {e}")
+            action_dict = {"adjust_goal": {}, "adjust_blocks": {"break_block": 0.5}, "energy_shift": {}}
             action_str = json.dumps(action_dict)
             action = BlockAction(**action_dict)
         
