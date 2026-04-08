@@ -76,12 +76,45 @@ class FlowStateEnv(Environment):
         
         return round(productivity - fatigue_penalty, 4)
 
-    def reset(self) -> BlockObservation:
+    def reset(self, task_id: str = None, **kwargs) -> BlockObservation:
         """
-        Wipes the state completely and returns a pristine initial observation.
+        Wipes the state completely and initializes based on task difficulty.
+        Supports: 'easy', 'medium', 'hard'. Defaults to 'easy'.
         """
         self.step_count = 0
         self.sim_state = self._get_initial_state()
+
+        # Default to easy if no task_id provided
+        if task_id is None:
+            task_id = "easy"
+
+        if task_id == "easy":
+            # 1 goal, 2 hours planned, full energy (focus_score=1.0)
+            self.sim_state["goals"] = {
+                "Goal_1": {"planned": 2.0, "completed": 0.0}
+            }
+            self.sim_state["focus_score"] = 1.0
+            self.sim_state["fatigue_level"] = 0.0
+
+        elif task_id == "medium":
+            # 2 goals, 3 hours each, moderate starting fatigue (focus_score=0.8)
+            self.sim_state["goals"] = {
+                "Goal_1": {"planned": 3.0, "completed": 0.0},
+                "Goal_2": {"planned": 3.0, "completed": 0.0}
+            }
+            self.sim_state["focus_score"] = 0.8
+            self.sim_state["fatigue_level"] = 0.2
+
+        elif task_id == "hard":
+            # 3 goals, 5 hours each, low starting energy (focus_score=0.5)
+            self.sim_state["goals"] = {
+                "Goal_1": {"planned": 5.0, "completed": 0.0},
+                "Goal_2": {"planned": 5.0, "completed": 0.0},
+                "Goal_3": {"planned": 5.0, "completed": 0.0}
+            }
+            self.sim_state["focus_score"] = 0.5
+            self.sim_state["fatigue_level"] = 0.5
+
         return self._build_observation(reward=0.0, done=False)
 
     def step(self, action: BlockAction) -> BlockObservation:
