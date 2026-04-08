@@ -1,3 +1,14 @@
+---
+title: FlowState RL
+emoji: 🧠
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+app_port: 8000
+---
+
+
 # FlowState RL: Agentic Productivity Optimizer 🧠🚀
 
 FlowState is a high-fidelity Reinforcement Learning environment designed to train agents in the art of human-centric schedule optimization. Unlike simple toy environments, FlowState simulates the complex interplay between **Cognitive Focus**, **Fatigue Accumulation**, and **Task Completion**.

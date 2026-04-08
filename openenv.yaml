@@ -7,8 +7,8 @@ port: 8000
 
 tasks:
   - id: "easy"
-    description: "Complete a single 2-hour work goal with full energy."
+    description: "Single goal focus with no initial fatigue."
   - id: "medium"
-    description: "Manage two parallel 3-hour goals with moderate starting fatigue."
+    description: "Parallel task management with moderate fatigue accumulation."
   - id: "hard"
-    description: "Survive a high-pressure day with 3 large goals and low starting energy."
+    description: "High-pressure multi-tasking starting from a state of exhaustion."

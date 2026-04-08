@@ -89,28 +89,28 @@ class FlowStateEnv(Environment):
             task_id = "easy"
 
         if task_id == "easy":
-            # 1 goal, 2 hours planned, full energy (focus_score=1.0)
+            # 1 goal, 2 hours planned, full energy, no fatigue
             self.sim_state["goals"] = {
-                "Goal_1": {"planned": 2.0, "completed": 0.0}
+                "Goal_Alpha": {"planned": 2.0, "completed": 0.0}
             }
             self.sim_state["focus_score"] = 1.0
             self.sim_state["fatigue_level"] = 0.0
 
         elif task_id == "medium":
-            # 2 goals, 3 hours each, moderate starting fatigue (focus_score=0.8)
+            # 2 goals, 4 hours each, moderate starting fatigue
             self.sim_state["goals"] = {
-                "Goal_1": {"planned": 3.0, "completed": 0.0},
-                "Goal_2": {"planned": 3.0, "completed": 0.0}
+                "Goal_Alpha": {"planned": 4.0, "completed": 0.0},
+                "Goal_Beta": {"planned": 4.0, "completed": 0.0}
             }
             self.sim_state["focus_score"] = 0.8
             self.sim_state["fatigue_level"] = 0.2
 
         elif task_id == "hard":
-            # 3 goals, 5 hours each, low starting energy (focus_score=0.5)
+            # 3 goals, 6 hours each, high starting fatigue
             self.sim_state["goals"] = {
-                "Goal_1": {"planned": 5.0, "completed": 0.0},
-                "Goal_2": {"planned": 5.0, "completed": 0.0},
-                "Goal_3": {"planned": 5.0, "completed": 0.0}
+                "Goal_Alpha": {"planned": 6.0, "completed": 0.0},
+                "Goal_Beta": {"planned": 6.0, "completed": 0.0},
+                "Goal_Gamma": {"planned": 6.0, "completed": 0.0}
             }
             self.sim_state["focus_score"] = 0.5
             self.sim_state["fatigue_level"] = 0.5
