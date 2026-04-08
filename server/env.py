@@ -7,6 +7,7 @@ class FlowStateEnv(Environment):
         self.step_count = 0
         self.sim_state = self._get_initial_state()
 
+    @property
     def state(self) -> State:
         return State(
             episode_id="flow_state_v1",
