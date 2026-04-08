@@ -1,0 +1,21 @@
+{
+  "observation": {
+    "error": null,
+    "day": 1,
+    "fatigue_level": 0.0,
+    "focus_score": 1.0,
+    "constant_block": 10.0,
+    "external_block": 4.0,
+    "goal_block": 7.5,
+    "break_block": 9.0,
+    "reserve_block": 1.0,
+    "energy": {
+      "high_used": 0.0,
+      "medium_used": 0.0,
+      "low_used": 0.0
+    },
+    "goals": {}
+  },
+  "reward": 0.0,
+  "done": false
+}
