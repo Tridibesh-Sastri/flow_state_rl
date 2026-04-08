@@ -36,12 +36,15 @@ def log_end(success: bool, steps: int, score: float, rewards: list):
 
 async def main():
     # Ingest environment variables
-    api_base = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-    model_name = os.environ.get("MODEL_NAME", "baseline-model")
-    hf_token = os.getenv("HF_TOKEN")
+    api_base = os.environ.get("API_BASE_URL", "https://api-inference.huggingface.co/v1/")
+    model_name = os.environ.get("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
     
-    # Instantiate OpenAI client (use empty string if token is missing to prevent crash)
-    client = OpenAI(base_url=api_base, api_key=hf_token or "not-set")
+    # Ensure no default string is set for HF_TOKEN
+    hf_token = os.getenv("HF_TOKEN")
+    api_key = os.getenv("API_KEY") or hf_token
+    
+    # Instantiate OpenAI client
+    client = OpenAI(base_url=api_base, api_key=api_key or "not-set")
     
     # Log start
     log_start("FlowState Baseline Verification", "flow_state_rl", model_name)
@@ -58,20 +61,38 @@ async def main():
     for i in range(1, 6):
         step_count = i
         
-        # MOCK LLM CALL
-        # In a real run, you'd send `obs.model_dump_json()` inside the prompt.
-        action_dict = {
-            "adjust_goal": {f"Mock Goal {i}": 0.5},
-            "adjust_blocks": {"break_block": 1.0},
-            "energy_shift": {}
-        }
-        
+        # REAL LLM CALL (Phase 2 Requirement)
+        # We pass the current environment observation to the model and ask for a JSON action.
         try:
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema."
+                    },
+                    {
+                        "role": "user", 
+                        "content": f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action to maximize productivity while managing fatigue."
+                    }
+                ],
+                response_format={"type": "json_object"}
+            )
+            
+            action_str = response.choices[0].message.content
+            action_dict = json.loads(action_str)
+            
+            # Map the JSON response to our Pydantic model
             action = BlockAction(**action_dict)
+        except Exception as e:
+            # Fallback for safety to ensure the script doesn't crash
+            action_dict = {
+                "adjust_goal": {},
+                "adjust_blocks": {"break_block": 0.5},
+                "energy_shift": {}
+            }
             action_str = json.dumps(action_dict)
-        except Exception:
-            action = BlockAction()
-            action_str = "{}"
+            action = BlockAction(**action_dict)
         
         # Step through Environment
         obs = env.step(action)
