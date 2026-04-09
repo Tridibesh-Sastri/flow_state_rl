@@ -61,39 +61,31 @@ async def main():
     for i in range(1, 6):
         step_count = i
         
-        # REAL LLM CALL (Phase 2 Requirement)
-        try:
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema. Do not include markdown formatting."
-                    },
-                    {
-                        "role": "user", 
-                        "content": f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
-                    }
-                ]
-            )
+        # REAL LLM CALL - NO SAFETY NET
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema. Do not include markdown formatting."
+                },
+                {
+                    "role": "user", 
+                    "content": f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
+                }
+            ]
+        )
+        
+        action_str = response.choices[0].message.content.strip()
+        
+        # Clean markdown if the model includes it
+        if action_str.startswith("```json"):
+            action_str = action_str.replace("```json", "").replace("```", "").strip()
+        elif action_str.startswith("```"):
+            action_str = action_str.replace("```", "").strip()
             
-            action_str = response.choices[0].message.content.strip()
-            
-            # Clean markdown if the model includes it
-            if action_str.startswith("```json"):
-                action_str = action_str.replace("```json", "").replace("```", "").strip()
-            elif action_str.startswith("```"):
-                action_str = action_str.replace("```", "").strip()
-                
-            action_dict = json.loads(action_str)
-            action = BlockAction(**action_dict)
-            
-        except Exception as e:
-            # Print the error so it shows up in the platform's internal logs!
-            print(f"LLM Call Error at step {step_count}: {e}")
-            action_dict = {"adjust_goal": {}, "adjust_blocks": {"break_block": 0.5}, "energy_shift": {}}
-            action_str = json.dumps(action_dict)
-            action = BlockAction(**action_dict)
+        action_dict = json.loads(action_str)
+        action = BlockAction(**action_dict)
         
         # Step through Environment
         obs = env.step(action)
