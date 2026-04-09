@@ -1,5 +1,5 @@
 from openenv_core import Environment, State
-from models import EnergyState, GoalProgress, BlockAction, BlockObservation
+from models import BlockAction, BlockObservation
 
 class FlowStateEnv(Environment):
     def __init__(self):
@@ -74,7 +74,8 @@ class FlowStateEnv(Environment):
         productivity = (completed_total / planned_total) if planned_total > 0 else 0.0
         fatigue_penalty = self.sim_state.get("fatigue_level", 0.0) * 0.5
         
-        return round(productivity - fatigue_penalty, 4)
+        raw_reward = productivity - fatigue_penalty
+        return round(max(0.0, min(1.0, raw_reward)), 4)
 
     def reset(self, task_id: str = None, **kwargs) -> BlockObservation:
         """
@@ -145,10 +146,10 @@ class FlowStateEnv(Environment):
                         goal = goals_dict[goal_name]
                         if isinstance(goal, dict):
                             current_completed = goal.get("completed", 0.0)
-                            goal["completed"] = current_completed + (1.0 + float(adjustment))
+                            goal["completed"] = max(0.0, current_completed + float(adjustment))
                         else:
                             current_completed = getattr(goal, "completed", 0.0)
-                            setattr(goal, "completed", current_completed + (1.0 + float(adjustment)))
+                            setattr(goal, "completed", max(0.0, current_completed + float(adjustment)))
                             
             # 5. Fatigue Math
             fatigue_delta = (0.1 * 2.0) - (0.08 * self.sim_state["break_block"])

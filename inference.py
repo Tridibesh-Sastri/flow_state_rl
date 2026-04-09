@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 # Direct instantiation of environment for the baseline script
-from server.env import FlowStateEnv
+from env import FlowStateEnv
 from models import BlockAction
 
 TASK_NAME = "FlowState Scheduling"
@@ -21,7 +21,7 @@ def log_start(task: str, env_name: str, model: str) -> None:
     print(f"[START] task={task} env={env_name} model={model}", flush=True)
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
-    error_val = str(error) if error else "null"
+    error_val = str(error) if error is not None else "null"
     done_val = "true" if done else "false"
     
     # Strip newlines from action to avoid breaking the single-line requirement
