@@ -1,8 +1,10 @@
 import os
 import json
+import sys
 from typing import List, Optional
 from openai import OpenAI
 
+# Direct instantiation of environment for the baseline script
 from server.env import FlowStateEnv
 from models import BlockAction
 
@@ -14,44 +16,47 @@ def log_start(task: str, env_name: str, model: str) -> None:
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
     error_val = str(error) if error else "null"
-    done_val = str(done).lower()
+    done_val = "true" if done else "false"
     
     # Strip newlines from action to avoid breaking the single-line requirement
     action_clean = action.replace("\n", " ").replace("\r", " ")
     
     print(f"[STEP] step={step} action={action_clean} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
 
-def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    success_val = str(success).lower()
+def log_end(success: bool, steps: int, rewards: List[float]) -> None:
+    success_val = "true" if success else "false"
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     
-    print(f"[END] success={success_val} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+    # CRITICAL FIX: Removed 'score=' to strictly match the regex validator
+    print(f"[END] success={success_val} steps={steps} rewards={rewards_str}", flush=True)
 
 def main():
     rewards = []
     step_count = 0
-    obs = None
+    success = False
+    env = None
     
     try:
-        # The validator explicitly checks for these exact keys
-        client = OpenAI(
-            base_url=os.environ["API_BASE_URL"],
-            api_key=os.environ["API_KEY"]
-        )
-        model_name = os.environ["MODEL_NAME"]
+        # 1. API Initialization (Strict fallback pattern)
+        api_base = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+        api_key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+        model_name = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
+        
+        if not api_key:
+            raise ValueError("HF_TOKEN or API_KEY environment variable is required")
+            
+        client = OpenAI(base_url=api_base, api_key=api_key)
         
         log_start(task=TASK_NAME, env_name=BENCHMARK, model=model_name)
         
         env = FlowStateEnv()
         obs = env.reset()
         
-        for step in range(1, 6):
+        for step in range(1, 21):
             step_count = step
             
             system_prompt = "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema. Do not include markdown formatting."
             user_prompt = f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
-            
-            action_str = "{}"
             
             response = client.chat.completions.create(
                 model=model_name,
@@ -78,18 +83,15 @@ def main():
                 done = obs.done
                 env_error = str(obs.error) if obs.error else None
                 
+                # Explicit Success Tracking
+                if done and not env_error:
+                    success = True
+                    
             except Exception as e:
                 reward = 0.0
                 done = True
                 env_error = f"Action parsing failed: {e}"
-                # If an error happens, we attach it to the obs so finally picks it up correctly
-                if hasattr(obs, 'error'):
-                    obs.error = env_error
-                else:
-                    # Very edge case
-                    class MockObs:
-                        error = env_error
-                    obs = MockObs()
+                success = False
                 
             rewards.append(reward)
             log_step(step=step, action=action_str, reward=reward, done=done, error=env_error)
@@ -98,17 +100,18 @@ def main():
                 break
                 
     except Exception as e:
-        print(f"[DEBUG] Execution error: {e}", flush=True)
+        # CRITICAL FIX: Direct debug errors to stderr so they don't break the stdout regex scraper
+        print(f"[DEBUG] Execution error: {e}", file=sys.stderr, flush=True)
     finally:
-        # This block ensures the evaluator ALWAYS receives the final state
-        avg_score = sum(rewards) / len(rewards) if rewards else 0.0
-        clamped_score = max(0.0, min(1.0, avg_score))
-        
-        is_success = False
-        if obs and getattr(obs, 'error', True) is None:
-            is_success = True
-            
-        log_end(success=is_success, steps=step_count, score=clamped_score, rewards=rewards)
+        # CRITICAL FIX: Ensure environment is closed before emitting [END]
+        if env is not None:
+            try:
+                env.close()
+            except Exception as e:
+                print(f"[DEBUG] Env close error: {e}", file=sys.stderr, flush=True)
+                
+        # Emit final telemetry
+        log_end(success=success, steps=step_count, rewards=rewards)
 
 if __name__ == "__main__":
     main()
