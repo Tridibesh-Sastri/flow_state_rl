@@ -1,104 +1,123 @@
 import os
-import sys
 import json
-import asyncio
+from typing import List, Optional
 from openai import OpenAI
+
+# Direct instantiation of your environment for the baseline script
 from server.env import FlowStateEnv
 from models import BlockAction
 
-def log_start(task: str, env_name: str, model: str):
-    print("[START] " + json.dumps({"task": task, "env": env_name, "model": model}))
+# --- CONFIGURATION ---
+# Strictly use injected variables first, fallback to HF Router for local testing
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN")
+API_BASE_URL = os.environ.get("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.environ.get("MODEL_NAME") or "meta-llama/Llama-3.1-8B-Instruct"
 
-def log_step(step: int, action: str, reward: float, done: bool, error):
-    print("[STEP] " + json.dumps({
-        "step": step, 
-        "action": action, 
-        "reward": round(float(reward), 2), 
-        "done": done, 
-        "error": error
-    }))
+TASK_NAME = "FlowState Scheduling"
+BENCHMARK = "flow_state_rl"
+MAX_STEPS = 5
+SUCCESS_SCORE_THRESHOLD = 0.5  # Adjust based on your reward logic
 
-def log_end(success: bool, steps: int, score: float, rewards: list):
-    formatted_rewards = [round(float(r), 2) for r in rewards]
-    print("[END] " + json.dumps({
-        "success": success, 
-        "steps": steps, 
-        "score": round(float(max(0.0, min(1.0, score))), 2), 
-        "rewards": formatted_rewards
-    }))
+# --- STRICT LOGGING FORMATTERS ---
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
-async def main():
-    api_base = os.getenv("API_BASE_URL", "https://router.huggingface.co/hf-inference/v1/")
-    model_name = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val = str(done).lower()
     
-    api_key = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
-    if not api_key:
-        raise ValueError("HF_TOKEN environment variable is required")
+    # CRITICAL: Strip newlines from action so it doesn't break the single-line stdout rule
+    action_clean = action.replace("\n", " ").replace("\r", " ")
+    
+    print(
+        f"[STEP] step={step} action={action_clean} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
 
-    client = OpenAI(base_url=api_base, api_key=api_key)
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
+# --- MAIN EXECUTION ---
+def main():
+    # 1. Initialize strictly via the required variables
+    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
     
-    log_start("FlowState Agentic Evaluation", "flow_state_rl", model_name)
-    
+    # 2. Instantiate Environment
     env = FlowStateEnv()
     obs = env.reset()
     
     rewards = []
-    done = False
-    step_count = 0
-    error_msg = None
+    steps_taken = 0
+    score = 0.0
+    success = False
+    
+    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
     
     try:
-        for i in range(1, 11):
-            step_count = i
+        for step in range(1, MAX_STEPS + 1):
+            steps_taken = step
             
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": "You are a FlowState agent. Output ONLY valid JSON matching the BlockAction schema. Do not include markdown."
-                    },
-                    {
-                        "role": "user", 
-                        "content": f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
-                    }
-                ],
-                max_tokens=300,
-                temperature=0.1
-            )
+            # 3. Formulate Prompt
+            system_prompt = "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema. Do not include markdown formatting."
+            user_prompt = f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
             
-            action_str = response.choices[0].message.content.strip()
+            action_str = "{}"
             
-            # Robust markdown cleaning
+            # 4. LLM Call via Proxy
+            try:
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=200
+                )
+                action_str = response.choices[0].message.content.strip()
+            except Exception as e:
+                print(f"[DEBUG] Model request failed: {e}", flush=True)
+                # Let it fall through so the environment can flag the error and close gracefully
+
+            # 5. Clean Markdown (if the model ignores instructions)
             if action_str.startswith("```json"):
-                action_str = action_str.replace("```json", "", 1)
+                action_str = action_str.replace("```json", "").replace("```", "").strip()
             elif action_str.startswith("```"):
-                action_str = action_str.replace("```", "", 1)
-            if action_str.endswith("```"):
-                action_str = action_str[:-3]
-            action_str = action_str.strip()
+                action_str = action_str.replace("```", "").strip()
+            
+            # 6. Parse and Step
+            try:
+                action_dict = json.loads(action_str)
+                action = BlockAction(**action_dict)
+                obs = env.step(action)
                 
-            action_dict = json.loads(action_str)
-            action = BlockAction(**action_dict)
-            
-            obs = env.step(action)
-            reward = obs.reward
-            done = obs.done
-            error_msg = obs.error
-            
+                reward = float(obs.reward)
+                done = obs.done
+                env_error = str(obs.error) if obs.error else None
+                
+            except Exception as e:
+                # If JSON parsing fails, penalize and end episode
+                reward = 0.0
+                done = True
+                env_error = f"Action parsing failed: {e}"
+                
             rewards.append(reward)
-            log_step(step=step_count, action=action_str, reward=reward, done=done, error=error_msg)
+            log_step(step=step, action=action_str, reward=reward, done=done, error=env_error)
             
             if done:
                 break
+                
+        # 7. Final Scoring
+        avg_score = sum(rewards) / len(rewards) if rewards else 0.0
+        score = max(0.0, min(1.0, avg_score))  # Clamp to [0, 1]
+        success = score >= SUCCESS_SCORE_THRESHOLD
 
     except Exception as e:
-        print(f"\n[DEBUG ERROR] Episode crashed at step {step_count}: {str(e)}\n", file=sys.stderr)
-        error_msg = str(e)
+        print(f"[DEBUG] Episode crashed unexpectedly: {e}", flush=True)
     finally:
-        avg_score = sum(rewards) / len(rewards) if rewards else 0.0
-        is_success = (not bool(error_msg)) and len(rewards) > 0
-        log_end(success=is_success, steps=step_count, score=avg_score, rewards=rewards)
+        # 8. Ensure END is ALWAYS called
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
