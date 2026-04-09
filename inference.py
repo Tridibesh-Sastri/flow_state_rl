@@ -4,6 +4,12 @@ import sys
 from typing import List, Optional
 from openai import OpenAI
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Direct instantiation of environment for the baseline script
 from server.env import FlowStateEnv
 from models import BlockAction
@@ -62,7 +68,7 @@ def main():
             user_prompt = f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
             
             response = client.chat.completions.create(
-                model=model_name,
+                model=MODEL_NAME,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
