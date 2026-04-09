@@ -40,13 +40,6 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
 
 # --- MAIN EXECUTION ---
 def main():
-    # 1. Initialize strictly via the required variables
-    client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    
-    # 2. Instantiate Environment
-    env = FlowStateEnv()
-    obs = env.reset()
-    
     rewards = []
     steps_taken = 0
     score = 0.0
@@ -55,6 +48,13 @@ def main():
     log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
     
     try:
+        # 1. Initialize strictly via the required variables
+        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+        
+        # 2. Instantiate Environment
+        env = FlowStateEnv()
+        obs = env.reset()
+        
         for step in range(1, MAX_STEPS + 1):
             steps_taken = step
             
