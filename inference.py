@@ -38,16 +38,19 @@ def main():
     
     try:
         # 1. API Initialization (Strict fallback pattern)
-        api_base = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-        api_key = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-        model_name = os.getenv("MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct")
+        API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+        MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
+        HF_TOKEN = os.getenv("HF_TOKEN")
         
-        if not api_key:
-            raise ValueError("HF_TOKEN or API_KEY environment variable is required")
+        if HF_TOKEN is None:
+            raise ValueError("HF_TOKEN environment variable is required")
             
-        client = OpenAI(base_url=api_base, api_key=api_key)
+        client = OpenAI(
+            base_url=API_BASE_URL,
+            api_key=HF_TOKEN
+        )
         
-        log_start(task=TASK_NAME, env_name=BENCHMARK, model=model_name)
+        log_start(task=TASK_NAME, env_name=BENCHMARK, model=MODEL_NAME)
         
         env = FlowStateEnv()
         obs = env.reset()
