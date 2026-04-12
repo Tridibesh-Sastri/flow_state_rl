@@ -43,7 +43,7 @@ def log_end(success: bool, steps: int, rewards: List[float], score: float) -> No
     payload = json.dumps({
         "success": success,
         "steps": steps,
-        "score": round(score, 4),
+        "score": round(score, 2),
         "rewards": [round(r, 2) for r in rewards]
     })
     print(f"[END] {payload}", flush=True)

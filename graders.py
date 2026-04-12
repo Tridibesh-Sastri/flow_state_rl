@@ -35,20 +35,19 @@ def _compute_score(
     Returns:
         A float strictly in (0.001, 0.999).
     """
-    # Burnout is an automatic near-zero
     if final_fatigue >= 1.0:
-        return 0.001
+        return 0.01
 
     total = sum(rewards)
 
     if theoretical_max <= 0:
-        return 0.001
+        return 0.01
 
     # Normalise
     raw = total / theoretical_max
 
     # Strict open-interval clamp: 0.0 and 1.0 are both INVALID per validator
-    score = max(0.001, min(0.999, round(raw, 4)))
+    score = max(0.01, min(0.99, round(raw, 2)))
     return score
 
 
