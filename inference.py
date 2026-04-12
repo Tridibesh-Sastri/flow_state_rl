@@ -24,21 +24,29 @@ DEFAULT_TASK = os.getenv("TASK_ID", "easy")
 
 
 def log_start(task: str, env_name: str, model: str) -> None:
-    print(f"[START] task={task} env={env_name} model={model}", flush=True)
+    payload = json.dumps({"task": task, "env": env_name, "model": model})
+    print(f"[START] {payload}", flush=True)
 
 
 def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
-    error_val = str(error) if error is not None else "null"
-    done_val  = "true" if done else "false"
-    action_clean = action.replace("\n", " ").replace("\r", " ")
-    print(f"[STEP] step={step} action={action_clean} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
+    payload = json.dumps({
+        "step": step,
+        "action": action,
+        "reward": round(reward, 2),
+        "done": done,
+        "error": error
+    })
+    print(f"[STEP] {payload}", flush=True)
 
 
 def log_end(success: bool, steps: int, rewards: List[float], score: float) -> None:
-    success_val  = "true" if success else "false"
-    rewards_str  = ",".join(f"{r:.2f}" for r in rewards)
-    # Per spec/01_hackathon_rules.md §4, [END] must include score=
-    print(f"[END] success={success_val} steps={steps} rewards={rewards_str} score={score:.4f}", flush=True)
+    payload = json.dumps({
+        "success": success,
+        "steps": steps,
+        "score": round(score, 4),
+        "rewards": [round(r, 2) for r in rewards]
+    })
+    print(f"[END] {payload}", flush=True)
 
 
 def run_episode(env: FlowStateEnv, client: OpenAI, model_name: str, task_id: str) -> tuple:
