@@ -114,7 +114,7 @@ def run_episode(env: FlowStateEnv, client: OpenAI, model_name: str, task_id: str
                 success = True
 
         except Exception as e:
-            reward    = 0.001
+            reward    = 0.01
             done      = True
             env_error = f"Action parsing failed: {e}"
             success   = False
@@ -174,7 +174,7 @@ def main():
 
     except Exception as e:
         print(f"[DEBUG] Execution error: {e}", file=sys.stderr, flush=True)
-        final_score = 0.001
+        final_score = 0.01
     finally:
         if env is not None:
             try:
