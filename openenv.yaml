@@ -8,7 +8,12 @@ port: 8000
 tasks:
   - id: "easy"
     description: "Single goal focus with no initial fatigue."
+    grader: "graders.grade_easy"
+
   - id: "medium"
     description: "Parallel task management with moderate fatigue accumulation."
+    grader: "graders.grade_medium"
+
   - id: "hard"
     description: "High-pressure multi-tasking starting from a state of exhaustion."
+    grader: "graders.grade_hard"
