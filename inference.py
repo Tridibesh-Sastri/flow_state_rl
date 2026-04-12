@@ -46,14 +46,17 @@ def main():
         # 1. API Initialization (Strict fallback pattern)
         API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
         MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
-        HF_TOKEN = os.getenv("HF_TOKEN")
         
-        if HF_TOKEN is None:
-            raise ValueError("HF_TOKEN environment variable is required")
+        # CRITICAL: Grader injects API_KEY (not HF_TOKEN) to track LiteLLM proxy calls.
+        # Falling back to HF_TOKEN allows local dev to still work.
+        API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
+        
+        if API_KEY is None:
+            raise ValueError("API_KEY environment variable is required (grader injects this; locally set HF_TOKEN)")
             
         client = OpenAI(
             base_url=API_BASE_URL,
-            api_key=HF_TOKEN
+            api_key=API_KEY
         )
         
         log_start(task=TASK_NAME, env_name=BENCHMARK, model=MODEL_NAME)
