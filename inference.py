@@ -64,8 +64,26 @@ def main():
         for step in range(1, 21):
             step_count = step
             
-            system_prompt = "You are a FlowState scheduling agent. Output ONLY valid JSON matching the BlockAction schema. Do not include markdown formatting."
-            user_prompt = f"Current Observation: {json.dumps(obs.model_dump())}\nChoose the best next action."
+            goal_names = list(obs.model_dump().get("goals", {}).keys())
+            system_prompt = (
+                "You are a FlowState scheduling agent. Your job is to maximize task completion while managing fatigue.\n\n"
+                "OUTPUT ONLY valid JSON with EXACTLY these keys:\n"
+                "  adjust_goal   - dict mapping goal names to hours to add (e.g. {\"Goal_Alpha\": 0.5})\n"
+                "  adjust_blocks - dict with optional key 'break_block' for break adjustments (e.g. {\"break_block\": 0.1})\n"
+                "  energy_shift  - dict for energy tier shifts (can be empty {})\n\n"
+                "EXAMPLE of a valid action (do work AND take a small break to avoid burnout):\n"
+                "{\"adjust_goal\": {\"Goal_Alpha\": 0.5}, \"adjust_blocks\": {\"break_block\": 0.05}, \"energy_shift\": {}}\n\n"
+                "RULES:\n"
+                "- Only use goal names that appear in the 'goals' field of the observation.\n"
+                "- If fatigue_level > 0.7, prioritize increasing break_block instead of working.\n"
+                "- Do NOT use keys like 'action', 'task', 'duration', or 'work'. They will be IGNORED.\n"
+                "- Do NOT include markdown code fences."
+            )
+            user_prompt = (
+                f"Current Observation: {json.dumps(obs.model_dump())}\n"
+                f"Available goals: {goal_names}\n"
+                f"Choose the best next action as a single JSON object."
+            )
             
             response = client.chat.completions.create(
                 model=MODEL_NAME,
