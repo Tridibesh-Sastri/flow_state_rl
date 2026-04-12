@@ -155,34 +155,40 @@ def main():
 
         client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
-        task_id = DEFAULT_TASK
-        log_start(task=task_id, env_name=BENCHMARK, model=MODEL_NAME)
-
-        env = FlowStateEnv()
-
         # ----------------------------------------------------------------
-        # 2. Run episode for the configured task
+        # 2. Run episode for the configured tasks
         # ----------------------------------------------------------------
-        rewards, final_fatigue, success, step_count = run_episode(
-            env, client, MODEL_NAME, task_id
-        )
+        tasks_to_run = [DEFAULT_TASK] if os.getenv("TASK_ID") else ["easy", "medium", "hard"]
 
-        # ----------------------------------------------------------------
-        # 3. Compute final grader score (strictly in (0.001, 0.999))
-        # ----------------------------------------------------------------
-        final_score = grade(task_id, rewards, final_fatigue)
-
-    except Exception as e:
-        print(f"[DEBUG] Execution error: {e}", file=sys.stderr, flush=True)
-        final_score = 0.01
-    finally:
-        if env is not None:
+        for tid in tasks_to_run:
+            env = FlowStateEnv()
             try:
-                env.close()
-            except Exception as e:
-                print(f"[DEBUG] Env close error: {e}", file=sys.stderr, flush=True)
+                log_start(task=tid, env_name=BENCHMARK, model=MODEL_NAME)
+                rewards, final_fatigue, success, step_count = run_episode(
+                    env, client, MODEL_NAME, tid
+                )
 
-        log_end(success=success, steps=step_count, rewards=rewards, score=final_score)
+                # ----------------------------------------------------------------
+                # 3. Compute final grader score (strictly in (0.01, 0.99))
+                # ----------------------------------------------------------------
+                final_score = grade(tid, rewards, final_fatigue)
+            except Exception as e:
+                print(f"[DEBUG] Execution error on {tid}: {e}", file=sys.stderr, flush=True)
+                final_score = 0.01
+                success = False
+                step_count = 0
+                rewards = []
+            finally:
+                if env is not None:
+                    try:
+                        env.close()
+                    except Exception as e:
+                        print(f"[DEBUG] Env close error: {e}", file=sys.stderr, flush=True)
+                
+                log_end(success=success, steps=step_count, rewards=rewards, score=final_score)
+
+    except Exception as general_e:
+        print(f"[DEBUG] Global execution error: {general_e}", file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":
