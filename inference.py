@@ -148,7 +148,7 @@ def main():
         client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
         task_id = DEFAULT_TASK
-        log_start(task=TASK_NAME, env_name=BENCHMARK, model=MODEL_NAME)
+        log_start(task=task_id, env_name=BENCHMARK, model=MODEL_NAME)
 
         env = FlowStateEnv()
 
